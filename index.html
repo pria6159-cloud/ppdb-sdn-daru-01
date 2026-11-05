@@ -1,0 +1,251 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#153e75">
+<link rel="manifest" href="manifest.json">
+<title>PPDB SDN Daru 01</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#f2f5fa;color:#243247;font-family:Arial,sans-serif}
+header{background:#153e75;color:white;padding:24px 18px}
+header h1{margin:0;font-size:23px}
+header p{margin:8px 0 0;color:#dceaff}
+nav{display:flex;gap:8px;padding:12px;background:white;position:sticky;top:0}
+button{border:0;border-radius:8px;padding:12px 16px;background:#1c65b5;color:white;font-weight:bold;cursor:pointer}
+nav button{flex:1}
+nav button.active{background:#153e75}
+main{max-width:850px;margin:20px auto;padding:0 14px}
+.card{background:white;padding:20px;border-radius:13px;margin-bottom:16px;box-shadow:0 2px 12px #142c4b0d}
+h2{font-size:19px;margin-top:0;color:#153e75}
+label{display:block;font-size:13px;font-weight:bold;margin:13px 0 6px}
+input,select,textarea{width:100%;padding:12px;border:1px solid #ccd5e2;border-radius:8px;font:inherit;background:white}
+textarea{min-height:75px}
+.submit{width:100%;margin-top:18px}
+.hidden{display:none}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+.stat{background:#edf4ff;border-radius:9px;padding:14px;text-align:center}
+.stat strong{display:block;font-size:23px;color:#153e75}
+.item{border:1px solid #e0e6ee;border-radius:9px;padding:13px;margin:12px 0}
+.item p{font-size:13px;margin:7px 0}
+.small{font-size:12px;color:#68778b}
+.success{color:#16834b}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:9px;border-bottom:1px solid #e4e9f0;text-align:left}
+footer{text-align:center;padding:24px;color:#738095;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+<h1>SDN DARU 01</h1>
+<p>Penerimaan Peserta Didik Baru 2027/2028</p>
+</header>
+
+<nav>
+<button id="studentTab" class="active" onclick="showPage('student')">Pendaftaran</button>
+<button id="checkTab" onclick="showPage('check')">Cek Status</button>
+<button id="adminTab" onclick="showPage('admin')">Admin</button>
+</nav>
+
+<main>
+<section id="student">
+<div class="card">
+<h2>Formulir Pendaftaran Siswa</h2>
+<p class="small">Lengkapi data calon peserta didik dengan benar.</p>
+<form id="registration">
+<label>Nama lengkap siswa *</label>
+<input name="nama" required placeholder="Nama sesuai dokumen">
+
+<label>NIK siswa *</label>
+<input name="nik" required maxlength="16" inputmode="numeric">
+
+<label>Jenis kelamin *</label>
+<select name="jk" required>
+<option value="">Pilih jenis kelamin</option>
+<option>Laki-laki</option>
+<option>Perempuan</option>
+</select>
+
+<label>Tempat lahir *</label>
+<input name="tempat" required>
+
+<label>Tanggal lahir *</label>
+<input name="tanggal" type="date" required>
+
+<label>Alamat lengkap *</label>
+<textarea name="alamat" required></textarea>
+
+<label>Nama orang tua / wali *</label>
+<input name="ortu" required>
+
+<label>Nomor WhatsApp orang tua *</label>
+<input name="hp" type="tel" required>
+
+<label>Asal TK / PAUD (jika ada)</label>
+<input name="asal">
+
+<button class="submit" type="submit">Kirim Pendaftaran</button>
+</form>
+<div id="result" class="hidden"></div>
+</div>
+</section>
+
+<section id="check" class="hidden">
+<div class="card">
+<h2>Cek Status Pendaftaran</h2>
+<label>Nomor pendaftaran</label>
+<input id="searchNumber" placeholder="Contoh: DARU-2027-0001">
+<button onclick="checkStatus()">Periksa Status</button>
+<div id="checkResult"></div>
+</div>
+</section>
+
+<section id="admin" class="hidden">
+<div class="card" id="loginBox">
+<h2>Login Administrator</h2>
+<label>Kode akses admin</label>
+<input id="adminPin" type="password" placeholder="Masukkan kode akses">
+<button onclick="login()">Masuk</button>
+<p class="small">Kode demo: 123456. Ganti dengan autentikasi server sebelum digunakan publik.</p>
+</div>
+
+<div id="dashboard" class="hidden">
+<div class="card">
+<h2>Dashboard Admin</h2>
+<div class="stats">
+<div class="stat"><strong id="total">0</strong><span class="small">Pendaftar</span></div>
+<div class="stat"><strong id="pending">0</strong><span class="small">Menunggu</span></div>
+<div class="stat"><strong id="accepted">0</strong><span class="small">Diterima</span></div>
+</div>
+<button onclick="exportCSV()" style="margin-top:15px">Ekspor CSV</button>
+<button onclick="logout()" style="background:#69788a">Keluar</button>
+</div>
+<div class="card">
+<h2>Data Calon Siswa</h2>
+<div id="applicants"></div>
+</div>
+</div>
+</section>
+</main>
+
+<footer>PPDB Online · SDN Daru 01<br>Prototipe sistem pendaftaran sekolah</footer>
+
+<script>
+const KEY='sdn_daru_01_registrations';
+const getData=()=>JSON.parse(localStorage.getItem(KEY)||'[]');
+const saveData=d=>localStorage.setItem(KEY,JSON.stringify(d));
+
+function showPage(page){
+['student','check','admin'].forEach(id=>{
+document.getElementById(id).classList.toggle('hidden',id!==page);
+document.getElementById(id+'Tab').classList.toggle('active',id===page);
+});
+if(page==='admin'&&sessionStorage.getItem('admin')==='yes')renderAdmin();
+}
+
+document.getElementById('registration').addEventListener('submit',e=>{
+e.preventDefault();
+const form=Object.fromEntries(new FormData(e.target));
+const data=getData();
+const number='DARU-2027-'+String(Date.now()).slice(-6);
+data.push({
+...form,number,
+status:'Menunggu verifikasi',
+created:new Date().toISOString()
+});
+saveData(data);
+document.getElementById('result').classList.remove('hidden');
+document.getElementById('result').innerHTML=
+'<h3 class="success">Pendaftaran berhasil dicatat!</h3>'+
+'<p>Nomor pendaftaran Anda:</p><h2>'+number+'</h2>'+
+'<p class="small">Simpan nomor ini untuk memeriksa status pendaftaran.</p>';
+e.target.reset();
+});
+
+function checkStatus(){
+const number=document.getElementById('searchNumber').value.trim();
+const record=getData().find(x=>x.number===number);
+const box=document.getElementById('checkResult');
+box.textContent='';
+if(!record){box.textContent='Nomor pendaftaran tidak ditemukan.';return;}
+const h=document.createElement('h3');
+h.textContent=record.nama;
+const p=document.createElement('p');
+p.textContent='Status: '+record.status;
+box.append(h,p);
+}
+
+function login(){
+if(document.getElementById('adminPin').value==='123456'){
+sessionStorage.setItem('admin','yes');
+document.getElementById('loginBox').classList.add('hidden');
+document.getElementById('dashboard').classList.remove('hidden');
+renderAdmin();
+}else alert('Kode akses salah.');
+}
+
+function logout(){
+sessionStorage.removeItem('admin');
+document.getElementById('loginBox').classList.remove('hidden');
+document.getElementById('dashboard').classList.add('hidden');
+}
+
+function renderAdmin(){
+if(sessionStorage.getItem('admin')!=='yes')return;
+const data=getData();
+document.getElementById('total').textContent=data.length;
+document.getElementById('pending').textContent=data.filter(x=>x.status==='Menunggu verifikasi').length;
+document.getElementById('accepted').textContent=data.filter(x=>x.status==='Diterima').length;
+const box=document.getElementById('applicants');
+box.replaceChildren();
+
+if(!data.length){box.textContent='Belum ada pendaftar.';return;}
+
+data.slice().reverse().forEach(record=>{
+const div=document.createElement('div');
+div.className='item';
+const title=document.createElement('strong');
+title.textContent=record.nama;
+const info=document.createElement('p');
+info.textContent=record.number+' · '+record.hp;
+const status=document.createElement('p');
+status.textContent='Status: '+record.status;
+const select=document.createElement('select');
+['Menunggu verifikasi','Diterima','Ditolak'].forEach(s=>{
+const opt=document.createElement('option');
+opt.value=s;opt.textContent=s;
+select.append(opt);
+});
+select.value=record.status;
+select.addEventListener('change',()=>{
+const all=getData();
+const i=all.findIndex(x=>x.number===record.number);
+if(i>=0){all[i].status=select.value;saveData(all);renderAdmin();}
+});
+div.append(title,info,status,select);
+box.append(div);
+});
+}
+
+function exportCSV(){
+const data=getData();
+if(!data.length){alert('Belum ada data.');return;}
+const fields=['number','nama','nik','jk','tempat','tanggal','alamat','ortu','hp','asal','status'];
+const csv=[fields.join(','),...data.map(r=>fields.map(f=>
+'"'+String(r[f]||'').replace(/"/g,'""')+'"').join(','))].join('\n');
+const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+const a=document.createElement('a');
+a.href=URL.createObjectURL(blob);
+a.download='data-ppdb-sdn-daru-01.csv';
+a.click();
+URL.revokeObjectURL(a.href);
+}
+
+if('serviceWorker' in navigator){
+navigator.serviceWorker.register('./sw.js').catch(console.error);
+}
+</script>
+</body>
+</html>
